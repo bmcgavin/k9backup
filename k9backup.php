@@ -32,7 +32,9 @@ if (!file_exists($dbname)) {
 $db = new SQLite3($dbname);
 $results = $db->query('SELECT id, name FROM folders');
 while ($row = $results->fetchArray()) {
-    mkdir(FOLDER_PREFIX . $row['name']);
+    if (!file_exists(FOLDER_PREFIX . $row['name'])) {
+        mkdir(FOLDER_PREFIX . $row['name']);
+    }
     $messages = $db->query('SELECT * FROM messages WHERE folder_id = ' . $row['id'] . ' ORDER BY date ASC');
     $i = 1;
     while ($message = $messages->fetchArray()) {
@@ -41,8 +43,9 @@ while ($row = $results->fetchArray()) {
         $boundary = null;
         while ($header = $headers->fetchArray()) {
             if ($header['name'] == 'Content-Type') {
-                if (preg_match('|boundary="?([\-a-zA-Z0-9])"?|U', $header['value'], $matches)) {
+                if (preg_match('|boundary="{0,1}([_\-a-zA-Z0-9]*)"{0,1}|', $header['value'], $matches)) {
                     $boundary = $matches[1];
+                    echo $boundary . PHP_EOL;
                 }
             }
             $header['value'] = str_replace("\t", "\r\n\t", $header['value']);
@@ -50,6 +53,7 @@ while ($row = $results->fetchArray()) {
         }
         $message_content .= "\r\n";
         if ($boundary !== null) {
+            echo "GOT BOUNDARY : " . $boundary;
             $message_content .= "--" . $boundary . "\r\n";
             $message_content .= "Content-Type: text/plain;\r\n";
             $message_content .= "  charset=utf-8\r\n";
@@ -63,6 +67,8 @@ while ($row = $results->fetchArray()) {
             $message_content .= "\r\n";
             $message_content .= $message['html_content'] . "\r\n";
             $message_content .= "--" . $boundary . "--\r\n";
+            echo $message_content;
+            exit;
         } else {
             $message_content .= $message['text_content'];
         }
